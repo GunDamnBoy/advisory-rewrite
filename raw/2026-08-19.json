@@ -1,6 +1,6 @@
 {
  "date": "2026-08-19",
- "fetched_at": "2026-08-19T05:20:54+00:00",
+ "fetched_at": "2026-08-19T05:24:48+00:00",
  "essential": [
   "FRED:BAMLC0A0CM",
   "FRED:BAMLH0A0HYM2",
@@ -33342,12 +33342,12 @@
   "SPDR:GLD": {
    "status": "failed",
    "reason": "ParseFailed",
-   "detail": "SPDR:GLD 用 utf-8-sig、cp1252 都解不開；開頭 32 bytes：25 50 44 46 2d 31 2e 35 0d 0a 25 e2 e3 cf d3 0d 0a 32 20 30 20 6f 62 6a 0d 0a 3c 3c 0d 0a 2f 54"
+   "detail": "SPDR:GLD 既不是 JSON 也不是 CSV。content-type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'、537572 bytes、開頭 48 bytes：50 4b 03 04 14 00 00 08 08 00 42 11 13 5d b0 a2 ac a8 77 01 00 00 22 06 00 00 13 00 04 00 5b 43 6f 6e 74 65 6e 74 5f 54 79 70 65 73 5d 2e 78 6d"
   },
   "SPDR:GLDM": {
    "status": "failed",
-   "reason": "UpstreamError",
-   "detail": "SPDR:GLDM 回 404"
+   "reason": "ParseFailed",
+   "detail": "SPDR:GLDM 既不是 JSON 也不是 CSV。content-type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'、199043 bytes、開頭 48 bytes：50 4b 03 04 14 00 00 08 08 00 43 11 13 5d b0 a2 ac a8 77 01 00 00 22 06 00 00 13 00 04 00 5b 43 6f 6e 74 65 6e 74 5f 54 79 70 65 73 5d 2e 78 6d"
   }
  }
 }
