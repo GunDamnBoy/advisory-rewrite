@@ -1,0 +1,72 @@
+# 把 repo 原樣發到 GitHub Pages。
+#
+# 為什麼不做建置：外殼是單一 index.html、零依賴、零建置步驟，資料是同 repo 的
+# data/*.json，前端自己 fetch。**多一個建置步驟就多一個會壞掉又沒人看著的環節**，
+# 而這條線的失敗模式是「網站還在、但停在舊資料」——那是最難察覺的一種。
+#
+# 觸發點有三個，缺一不可：
+#   push       —— publish.py 每天推 data/ 之後自動重新部署，這是主要路徑
+#   workflow_dispatch —— 手動重跑，用於外殼改版或部署失敗後重試
+#   （不設 cron）—— 沒有新資料就不需要重新部署，排程只會製造無意義的 run
+name: pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同時只跑一個部署；排隊中的舊 run 直接取消，但**不取消進行中的那一個**——
+# 部署到一半被砍會留下半套站台。
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+
+      # 部署前先確認 index.json 至少解析得開、且指到的最新一天檔案存在。
+      # **這一步是為了讓「資料壞掉」在部署前就失敗，而不是變成一個打得開但空白的網站。**
+      - name: 檢查 data/ 可用
+        run: |
+          python3 - <<'EOF'
+          import json, pathlib, sys
+          idx = json.load(open("data/index.json"))
+          days = idx.get("days") or []
+          assert days, "index.json 沒有任何 days"
+          newest = days[0]
+          f = newest["file"]
+          if not f.startswith("http"):
+              assert pathlib.Path(f).exists(), f"最新一天指到不存在的檔：{f}"
+              json.load(open(f))
+          print(f"OK — {len(days)} 天，最新 {newest['date']} → {f}")
+          EOF
+
+      # 只把「網站要用到的東西」挑進去，不是整個 repo。
+      #
+      # raw/ 每天新增約 1.5MB 的保底層原始檔，一年就是幾百 MB。它是給隔天的
+      # 產出用的**輸入**，不是網站的一部分——每次部署都把它打包上傳，會讓
+      # artifact 隨天數線性長大，而且沒有任何人會發現，因為網站看起來一切正常。
+      - name: 準備要部署的檔案
+        run: |
+          mkdir -p _site
+          cp index.html _site/
+          cp -R data _site/
+          du -sh _site
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deploy
+        uses: actions/deploy-pages@v4
