@@ -36,6 +36,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      # 取數層是底盤裡**唯一**有第三方依賴的部分（openpyxl，因為 SPDR 回 XLSX）。
+      # 其餘部分刻意零依賴，因為它們要在 Mac 的 venv、Actions、雲端三個環境都能跑。
+      - name: 裝取數層的依賴
+        run: pip install -r kb-core/requirements.txt
+
       - name: 抓保底層
         id: fetch
         env:
