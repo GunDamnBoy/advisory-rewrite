@@ -1,0 +1,68 @@
+# 保底層 —— 每天在 Mac 那一輪開跑之前，把「一定拿得到」的東西先抓好。
+#
+# 為什麼它跑在 Actions 而不是 Mac：
+#
+# 1. **它不需要 LLM，也不需要登入狀態。** 官方端點與 CSV，純腳本的事。
+# 2. **兩個 Chrome 時代的坑在這裡不存在**——「navigate 到 JSON 會被當檔案下載」與
+#    「跨子網域 fetch 被 CORS 擋」都是瀏覽器的問題，伺服器端沒有。
+# 3. **它先跑完，Mac 那一輪才有底可踩。** 舊系統「衛星組湊不到就開補位輪」燒掉
+#    全輪 22.6% 成本，有一半是因為保底資料要現場抓。
+#
+# cron 排在台北 06:40（UTC 22:40 前一日），比 Mac 那一輪的 07:30 早五十分鐘。
+# GitHub 的排程會漂移甚至漏跑，所以 SKILL 第 1 步是「確認 raw 落地」而不是「假設它跑過」。
+
+name: fetch-floor
+
+on:
+  schedule:
+    - cron: "43 22 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/checkout@v5
+        with:
+          repository: GunDamnBoy/kb-core
+          path: kb-core
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: 抓保底層
+        id: fetch
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+        run: |
+          set +e
+          python kb-core/tools/fetch_advisory.py raw
+          echo "code=$?" >> "$GITHUB_OUTPUT"
+          set -e
+
+      # 沒有 if: —— 部分失敗時 raw 更需要被留下來，失敗理由就寫在裡面。
+      - name: commit raw
+        run: |
+          git config user.name  "kb-floor"
+          git config user.email "floor@users.noreply.github.com"
+          git add raw
+          if git diff --cached --quiet; then
+            echo "沒有東西可以 commit —— fetched_at 每次執行都會變，"
+            echo "所以這個狀態是不可能的。取數可能根本沒跑到寫檔那一步。"
+            exit 1
+          fi
+          git commit -m "raw: 保底層 $(date -u +%FT%TZ)"
+          git pull --rebase
+          git push
+
+      - name: 把取數的判定帶回 workflow 狀態
+        if: steps.fetch.outputs.code != '0'
+        run: |
+          echo "保底層退出碼 ${{ steps.fetch.outputs.code }} —— 必要項有失敗，raw 已落地但保底卡今天可能出不來"
+          exit 1
