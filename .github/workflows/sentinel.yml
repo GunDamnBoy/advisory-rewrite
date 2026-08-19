@@ -1,0 +1,98 @@
+# 哨兵 —— 每天問一次「這套系統還活著嗎」，並且**留下它問過的證據**。
+#
+# 為什麼它跑在 Actions 而不是 Mac：看守者要在被看守的東西外面。Mac 那一輪
+# 若整台關機、launchd 沒載入、或發布根本沒跑，Mac 上的任何檢查都不會執行 ——
+# **它看不見自己的缺席**。Actions 是獨立的一組手腳，所以看得見。
+#
+# 反過來也成立，所以 Mac 上另有 watch 那一組（`watch_sentinel.py`）看這一支還在不在。
+# 兩邊互看，共同失效模式才不會同時把兩邊蒙住。
+#
+# 三個刻意的設計：
+#
+# 1. **heartbeat 不管綠不綠都寫。** 它的語意是「我跑過了」，不是「一切正常」。
+#    綁在成功路徑上，就再也分不出「哨兵說沒事」與「哨兵根本沒跑」。
+#    所以 sentinel 這一步用 `set +e` 收退出碼，commit 一定執行。
+#
+# 2. **判定寫成檔案，開 issue 留在這裡。** 判斷邏輯在 Python 裡離線測得到，
+#    `gh` 的管線在 YAML 裡。反過來寫的話，「什麼情況該叫」只能靠真的跑一次才驗得到。
+#
+# 3. **同一則 issue 持續留言，不是每天開一則新的。** 每天一則新 issue 會在一週內
+#    變成沒人看的噪音；一則持續長大的 open issue 才是「還沒修好」的準確形狀。
+#
+# 排程 03:00 UTC（台北 11:00），在保底層（22:43 UTC）與 Mac 那一輪之後。
+# **GitHub 的排程會漂移、會漏跑，而且 repo 連續 60 天沒有活動就會自動停用排程。**
+# 那正是 Mac 那一側 `watch.sentinel_alive` 存在的理由 —— 這一支不能自己證明自己活著。
+#
+# 之後 podcast 的資料 repo 也需要同一份東西。**第二份出現的那天，就是把這段
+# YAML 收成 reusable workflow（`workflow_call`）的時機** —— 現在只有一份，
+# 為了一個尚未存在的第二份先引入新機制，不划算。
+
+name: sentinel
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  sentinel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/checkout@v5
+        with:
+          repository: GunDamnBoy/kb-core
+          path: kb-core
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      # 哨兵不碰取數層，所以不裝 requirements —— 檢查那一側是刻意零依賴的。
+      - name: 跑哨兵
+        id: sentinel
+        run: |
+          set +e
+          python kb-core/tools/sentinel.py . advisory-knowledge-hub
+          echo "code=$?" >> "$GITHUB_OUTPUT"
+          set -e
+
+      # 沒有 if: —— 判定越糟，heartbeat 越需要被留下來。
+      - name: commit heartbeat 與回報
+        run: |
+          git config user.name  "kb-sentinel"
+          git config user.email "sentinel@users.noreply.github.com"
+          git add sentinel
+          if git diff --cached --quiet; then
+            echo "沒有東西可以 commit —— heartbeat 的 at 每次執行都會變，"
+            echo "所以這個狀態是不可能的。哨兵可能根本沒跑到寫檔那一步。"
+            exit 1
+          fi
+          git commit -m "sentinel: $(date -u +%FT%TZ) exit=${{ steps.sentinel.outputs.code }}"
+          git pull --rebase
+          git push
+
+      - name: 判定不綠就叫人
+        if: steps.sentinel.outputs.code != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="哨兵：advisory-knowledge-hub 判定不綠"
+          num=$(gh issue list --state open --search "$title in:title" --json number -q '.[0].number // empty')
+          body=$'退出碼 `'"${{ steps.sentinel.outputs.code }}"$'`\n\n'"$(sed -n '1,60p' sentinel/report.md)"
+          if [ -n "$num" ]; then
+            gh issue comment "$num" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi
+
+      - name: 把判定帶回 workflow 狀態
+        if: steps.sentinel.outputs.code != '0'
+        run: |
+          echo "哨兵退出碼 ${{ steps.sentinel.outputs.code }} —— heartbeat 已寫入，issue 已更新"
+          exit 1
