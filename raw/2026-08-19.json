@@ -1,6 +1,6 @@
 {
  "date": "2026-08-19",
- "fetched_at": "2026-08-19T05:12:19+00:00",
+ "fetched_at": "2026-08-19T05:20:54+00:00",
  "essential": [
   "FRED:BAMLC0A0CM",
   "FRED:BAMLH0A0HYM2",
@@ -17726,7 +17726,9 @@
    "unit": "仟元",
    "note": "上櫃公司月營收。**CSV，UTF-8 含 BOM。**",
    "url": "https://mopsfin.twse.com.tw/opendata/t187ap05_O.csv",
+   "encoding": "utf-8-sig",
    "data": {
+    "encoding": "utf-8-sig",
     "columns": [
      "出表日期",
      "資料年月",
@@ -33340,7 +33342,7 @@
   "SPDR:GLD": {
    "status": "failed",
    "reason": "ParseFailed",
-   "detail": "SPDR:GLD 不是 UTF-8：'utf-8' codec can't decode byte 0xe2 in position 11: invalid continuation byte"
+   "detail": "SPDR:GLD 用 utf-8-sig、cp1252 都解不開；開頭 32 bytes：25 50 44 46 2d 31 2e 35 0d 0a 25 e2 e3 cf d3 0d 0a 32 20 30 20 6f 62 6a 0d 0a 3c 3c 0d 0a 2f 54"
   },
   "SPDR:GLDM": {
    "status": "failed",
