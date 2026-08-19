@@ -385,7 +385,10 @@ async function show(date){
   $("#updated").innerHTML=`最後更新 <b>${esc(ENTRY.stamp||DOC.stamp||"")}</b>`;
   $("#sub").textContent=`${IDX.count??DAYS.length} 天封存 · 更新 ${ENTRY.date.slice(5).replace("-","/")}`;
   $("#metaR").textContent=`共 ${IDX.count??DAYS.length} 天封存 · 全部保留`;
-  paintDates(); setHash(); paint();
+  // paint() 必須排在 setHash() 前面：TAB 的正規化（不存在的分頁 → 第一個分頁）
+  // 只發生在 paint() 裡，而網址只給日期時 TAB 還是初始的 null。反過來寫會把
+  // #2026-08-15 改寫成 #2026-08-15/null —— 頁面仍然正常，所以這種錯不會自己現形。
+  paintDates(); paint(); setHash();
 }
 
 async function main(){
