@@ -64,9 +64,26 @@ jobs:
           cp -R data _site/
           du -sh _site
 
+      # 驗證程式住在 kb-core，兩個資料 repo 共用一份 —— 單錨也適用於程式碼。
+      - uses: actions/checkout@v5
+        with:
+          repository: GunDamnBoy/kb-core
+          path: kb-core
+
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
       - id: deploy
         uses: actions/deploy-pages@v4
+
+      # **部署完不等於讀者看得到。** 這一段之前是整條鏈唯一沒有人看的地方：
+      # 回執證明 push、哨兵讀 checkout 證明 repo 內容夠新，
+      # 而「Pages 到底有沒有把它端出去」沒有任何訊號 ——
+      # 失敗的樣子是網站凍在昨天，而回執 exit 0、哨兵全綠。
+      #
+      # 比雜湊不比欄位：理由寫在 verify_live.py 的 docstring。
+      - name: 驗證線上那份就是剛上傳的那份
+        run: |
+          python3 kb-core/tools/verify_live.py \
+            "${{ steps.deploy.outputs.page_url }}" _site/data/index.json
