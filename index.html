@@ -112,6 +112,7 @@ table.w{width:100%;border-collapse:collapse}
 table.w td{border-top:1px solid var(--line2);padding:13px 6px;vertical-align:top;font-size:14px}
 table.w tr:first-child td{border-top:0}
 td.d{white-space:nowrap;color:var(--blue);font-weight:700;width:1%;padding-right:18px}
+.rv{color:var(--dim);margin-top:8px;line-height:1.75}
 .vd{display:inline-block;border-radius:5px;padding:1px 9px;font-size:12px;
   margin-right:8px;font-weight:600}
 .vd.應驗{background:#e7f7ed;color:#15803d}
@@ -274,10 +275,21 @@ function tabOverview(d){
     `</div></section>`);
 
   if(ov.watchReview?.length) H.push(`<section class="blk"><h2 class="blk">前期盯盤回顧</h2>
-    <div class="card pad"><table class="w">`+ov.watchReview.map(w=>`<tr>
-      <td class="d">${esc(w.d||"")}</td><td>
-      <span class="vd ${esc(w.verdict||"未決")}">${esc(w.verdict||"未決")}</span>${w.t||""}
-      ${w.note?`<div style="color:var(--dim);margin-top:7px">${w.note}</div>`:""}</td></tr>`).join("")+
+    <div class="card pad"><table class="w">`+ov.watchReview.map(w=>{
+      // 前期盯盤回顧是**兩層**：上層是當初丟出去的那句盯盤，下層是這一輪的回顧。
+      // 欄位名有兩種方言 —— 2026-08-19 重寫時改了名字也對調了語意：
+      //   重寫前（站上十九天）：t＝原文、note＝回顧
+      //   重寫後：              w＝原文、t＝回顧
+      // 渲染器當時沒跟著改，於是 8/19、8/20 兩版把「回顧」畫在原文的位置，
+      // 而原文（w）沒有任何地方讀它 —— 讀者看不到當初預測了什麼，且兩邊都不會報錯。
+      // **歷史封存不回頭改**，所以方言判讀住在這裡，判準是「有沒有 w」。
+      const neo = w.w != null;
+      const orig = (neo ? w.w : w.t) || "";
+      const review = (neo ? w.t : w.note) || "";
+      return `<tr><td class="d">${esc(w.d||"")}</td><td>
+      <span class="vd ${esc(w.verdict||"未決")}">${esc(w.verdict||"未決")}</span>${orig}
+      ${review?`<div class="rv">${review}</div>`:""}</td></tr>`;
+    }).join("")+
     `</table></div></section>`);
 
   if(ov.watch?.length) H.push(`<section class="blk"><h2 class="blk">接下來要盯什麼</h2>
