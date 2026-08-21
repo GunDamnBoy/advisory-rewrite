@@ -1,6 +1,6 @@
-# 哨兵回報 · 2026-08-20T08:06:56+00:00
+# 哨兵回報 · 2026-08-21T07:32:21+00:00
 
-- ❌ `sentinel.data_fresh` 最新一期是 2026-08-19，已經 40 小時 （上限 36）—— 管線停了
+- ✅ `sentinel.data_fresh`
 - ✅ `sentinel.no_future_date`
 - ✅ `sentinel.updated_fresh`
 - ✅ `sentinel.no_data_loss`
