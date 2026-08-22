@@ -337,28 +337,24 @@ function tabSection(d,id){
     ${groups || `<div class="empty">沒有符合「${esc(Q)}」的卡片。</div>`}`;
 }
 
-function tabAbout(d){
-  const a=d.about;
-  if(!a) return `<div class="empty">這一天沒有紀錄。</div>`;
-  /* `about` 的三個欄位有兩種方言：舊站十八天與重寫版的部分日子存字串，
-     8/19–8/20 存陣列。原本這裡寫 `arr?.length ? arr.map(...)`——
-     **非空字串的 .length 為真、.map 不存在**，於是 22 天裡有 20 天整頁炸掉
-     （`arr.map is not a function`），而且沒有人回報過三週。
-     一律正規化成陣列再走同一條路。 */
-  const L=(t,v)=>{
-    const a = v==null ? [] : (Array.isArray(v) ? v : [v]);
-    return a.length?`<h4>${t}</h4><ul>${a.map(x=>`<li>${x}</li>`).join("")}</ul>`:"";
-  };
-  return `<div class="card pad about">
-    ${a.timeliness?`<h4>時效</h4><div class="t">${a.timeliness}</div>`:""}
-    ${L("編輯說明",a.notes)}${L("執行紀錄",a.run)}${L("已知限制",a.limits)}</div>`;
-}
-
 /* ── 組裝 ───────────────────────────── */
+/* 2026-08-22 撤掉「關於與方法」分頁。`about` 欄位**仍然照常產出**、仍在
+   `data/<date>.json` 裡，下游 House View 與稽核照樣讀得到 —— 撤掉的是呈現，不是資料。
+
+   撤的理由不是它沒價值，是它裡面四塊東西的讀者不是同一群：`timeliness` 與
+   `limits` 是給讀者的，`run`（執行模型、七個採集員代號、熔斷次數）是維運遙測，
+   而遙測的家是回執與 CHANGELOG，不是投顧同仁早上那三分鐘。
+
+   撤之前先把它修好了（見 git `fb2e5f9`）：原本 22 天裡有 20 天整頁炸掉，
+   而三週沒有人回報 —— **那是「這一頁沒有人看」最可靠的證據**，比任何對它價值的
+   推測都硬。先修好是為了知道自己在撤掉什麼，不是撤掉一個從沒看過的黑盒。
+
+   合規沒有因此缺口：頁尾那一行「內容為新聞彙整與研究輔助，非投資建議。
+   報價口徑以各卡片標註為準。」就是 `limits` 的濃縮版，且每一頁都在。
+   舊的 `#<date>/about` 深連結不會壞 —— `paint()` 對不在清單裡的分頁會退回第一個。 */
 function tabsFor(d){
   const t=[{id:"overview",name:"三分鐘總覽"},{id:"essay",name:"摘要與心得"}];
   (d.sections||[]).forEach(s=>t.push({id:s.id,name:s.title||s.id}));
-  t.push({id:"about",name:"關於與方法"});
   return t;
 }
 
@@ -375,7 +371,6 @@ function paint(){
   let body;
   if(TAB==="overview") body=tabOverview(d);
   else if(TAB==="essay") body=tabEssay(d);
-  else if(TAB==="about") body=tabAbout(d);
   else body=tabSection(d,TAB);
 
   const arch=ENTRY?.archived
