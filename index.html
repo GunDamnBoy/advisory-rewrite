@@ -109,9 +109,9 @@ ol.take li::marker{color:var(--brand);font-weight:700}
 
 .thermo{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
 .thermo .lvl{font-size:40px;font-weight:800;line-height:1;letter-spacing:-1px}
-.gauge{flex:1;min-width:210px;height:9px;background:#e4e4e4;border-radius:999px;overflow:hidden}
-.gauge i{display:block;height:100%;border-radius:999px;
-  background:linear-gradient(90deg,#16a34a,#eab308,#dc2626)}
+.thermo .lvlnote{color:var(--faint);font-size:11.5px;margin-top:6px;white-space:nowrap}
+.chartwrap{flex:1;min-width:280px}
+.tchart{width:100%;height:auto;display:block}
 .thermo .note{flex-basis:100%;color:var(--dim);font-size:13.5px}
 
 .pulse{display:flex;gap:10px;flex-wrap:wrap}
@@ -256,6 +256,49 @@ function cardHtml(c){
 
 const hit = c => !Q || JSON.stringify(c).toLowerCase().includes(Q);
 
+/* 風險溫度的時間序列。資料直接取自 `data/index.json` 的 `days[].thermo`
+   （那是跨日記憶欄位，本來就已經載入），**不需要打開任何舊日檔**。
+
+   **y 軸至少涵蓋 50–80，資料超出才往外擴。** 固定 0–100 會把 22 天只走 16 點的
+   實況畫成一條平線 —— 那是用可讀性換一個看起來誠實的刻度；純自動縮放則相反，
+   會把 1 點的變動放大成一座山。取「有下限的自動縮放」並在兩端標值，
+   讀者看得到日變化，也看得到這個數字實際在哪一段。
+
+   **沒有 thermo 的日子讓線斷開，不補點。** 07-30、08-02、08-03、08-07、08-08
+   這五天是刻意的斷點（2026-08-11 之前有幾天把 level 寫成散文），
+   事後補值等於編造 —— 斷口本身就是那段歷史的一部分。
+
+   `thermo` 在 index 裡有 int 與字串兩種存法（8/11 前後的方言），一律 Number() 收。 */
+function thermoChart(curDate){
+  const pts=[...DAYS].map(e=>({d:e.date, v:(e.thermo==null||e.thermo==="")?null:Number(e.thermo)}))
+    .filter(p=>p.v===null||Number.isFinite(p.v))
+    .sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:0);
+  const vals=pts.filter(p=>p.v!==null).map(p=>p.v);
+  if(vals.length<2) return "";
+  const lo=Math.min(50,Math.floor((Math.min(...vals)-5)/5)*5);
+  const hi=Math.max(80,Math.ceil((Math.max(...vals)+5)/5)*5);
+  const W=680,H=150,PL=32,PR=10,PT=12,PB=22;
+  const t0=Date.parse(pts[0].d), t1=Date.parse(pts[pts.length-1].d), span=(t1-t0)||1;
+  const X=d=>PL+(Date.parse(d)-t0)/span*(W-PL-PR);
+  const Y=v=>PT+(hi-v)/(hi-lo)*(H-PT-PB);
+  const segs=[]; let cur=[];
+  for(const p of pts){
+    if(p.v===null){ if(cur.length>1) segs.push(cur); cur=[]; continue; }
+    cur.push(`${X(p.d).toFixed(1)},${Y(p.v).toFixed(1)}`);
+  }
+  if(cur.length>1) segs.push(cur);
+  const grid=[lo,(lo+hi)/2,hi].map(v=>
+    `<line x1="${PL}" y1="${Y(v).toFixed(1)}" x2="${W-PR}" y2="${Y(v).toFixed(1)}" stroke="#e4e4e4" stroke-width="1"/>`+
+    `<text x="${PL-6}" y="${(Y(v)+4).toFixed(1)}" text-anchor="end" font-size="11" fill="#727272">${Math.round(v)}</text>`).join("");
+  const line=segs.map(s=>`<polyline points="${s.join(" ")}" fill="none" stroke="#656565" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"/>`).join("");
+  const md=s=>s.slice(5).replace("-","/");
+  const cp=pts.find(p=>p.d===curDate&&p.v!==null);
+  const dot=cp?`<circle cx="${X(cp.d).toFixed(1)}" cy="${Y(cp.v).toFixed(1)}" r="4" fill="#222"/>`:"";
+  const xl=`<text x="${PL}" y="${H-6}" font-size="11" fill="#727272">${md(pts[0].d)}</text>`+
+    `<text x="${W-PR}" y="${H-6}" text-anchor="end" font-size="11" fill="#727272">${md(pts[pts.length-1].d)}</text>`;
+  return `<svg class="tchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="風險溫度時間序列，${pts[0].d} 至 ${pts[pts.length-1].d}，區間 ${Math.min(...vals)} 到 ${Math.max(...vals)}">${grid}${line}${dot}${xl}</svg>`;
+}
+
 /* ── 各分頁 ─────────────────────────── */
 function tabOverview(d){
   const ov=d.overview||{}, H=[];
@@ -274,9 +317,10 @@ function tabOverview(d){
 
   if(ov.thermo){
     const lv=parseInt(ov.thermo.level ?? ov.thermo,10);
+    const ch=thermoChart(d.date);
     H.push(`<section class="blk"><h2 class="blk">風險溫度</h2><div class="card pad thermo">
-      <div class="lvl">${isNaN(lv)?"—":lv}</div>
-      <div class="gauge"><i style="width:${isNaN(lv)?0:lv}%"></i></div>
+      <div><div class="lvl">${isNaN(lv)?"—":lv}</div><div class="lvlnote">編輯判斷</div></div>
+      ${ch?`<div class="chartwrap">${ch}</div>`:""}
       <div class="note">${ov.thermo.note||""}</div></div></section>`);
   }
 
